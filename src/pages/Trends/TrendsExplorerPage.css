@@ -1,0 +1,109 @@
+@keyframes trendsFadeUp {
+    0% {
+        opacity: 0;
+        transform: translateY(8px);
+    }
+
+    100% {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.trends-explorer-page {
+    position: relative;
+}
+
+.trends-hero-card {
+    position: relative;
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 16px;
+    overflow: hidden;
+    border-radius: 14px;
+    border: 1px solid rgba(148, 163, 184, 0.3);
+    background: linear-gradient(120deg, rgba(13, 110, 253, 0.12) 0%, rgba(20, 184, 166, 0.08) 52%, rgba(234, 88, 12, 0.08) 100%);
+    padding: 18px 20px;
+    animation: trendsFadeUp 220ms ease-out;
+}
+
+.trends-hero-card::after {
+    content: '';
+    position: absolute;
+    inset: auto -40px -52px auto;
+    width: 170px;
+    height: 170px;
+    border-radius: 999px;
+    background: radial-gradient(circle, rgba(56, 189, 248, 0.26) 0%, rgba(56, 189, 248, 0) 68%);
+    pointer-events: none;
+}
+
+.trends-hero-state {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 6px;
+    min-width: 210px;
+}
+
+.trends-stage-card {
+    border-radius: 14px;
+    animation: trendsFadeUp 260ms ease-out;
+}
+
+.trends-stage-card .ant-card-head {
+    border-bottom-width: 1px;
+}
+
+.trends-preview-metrics {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 10px;
+    margin-bottom: 14px;
+}
+
+.trends-preview-metric {
+    border-radius: 10px;
+    border: 1px solid rgba(148, 163, 184, 0.28);
+    background: linear-gradient(160deg, rgba(15, 23, 42, 0.08), rgba(15, 23, 42, 0.02));
+    padding: 10px 12px;
+}
+
+.trends-selection-bar {
+    position: sticky;
+    bottom: 0;
+    z-index: 3;
+    margin-top: 16px;
+    margin-left: -24px;
+    margin-right: -24px;
+    padding: 12px 24px;
+}
+
+@media (max-width: 900px) {
+    .trends-hero-state {
+        align-items: flex-start;
+        min-width: 0;
+    }
+
+    .trends-preview-metrics {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 600px) {
+    .trends-hero-card {
+        padding: 14px;
+    }
+
+    .trends-selection-bar {
+        margin-left: -16px;
+        margin-right: -16px;
+        padding: 12px 16px;
+    }
+
+    .trends-preview-metrics {
+        grid-template-columns: repeat(1, minmax(0, 1fr));
+    }
+}
