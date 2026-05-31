@@ -270,8 +270,8 @@ function LayoutShell({ collapsed, setCollapsed, dark, setDark }: ShellProps) {
                     <Typography.Text strong style={{ fontSize: 18 }}>
                         Trendy
                     </Typography.Text>
-                    <Space size={10} style={{ minWidth: 0 }}>
-                        <Typography.Text ellipsis style={{ maxWidth: 260 }} title={user?.email ?? ''} type="secondary">
+                    <Space size={10} style={{ minWidth: 0, alignItems: 'center', display: 'flex' }}>
+                        <Typography.Text ellipsis style={{ maxWidth: 260, lineHeight: 'normal', display: 'inline-block', verticalAlign: 'middle' }} title={user?.email ?? ''} type="secondary">
                             {user?.email}
                         </Typography.Text>
                         <Button onClick={logout}>Logout</Button>
