@@ -15,6 +15,7 @@ import { VideoIdeasTab } from './pages/Research/VideoIdeasTab'
 import { TrendingTab } from './pages/Research/TrendingTab'
 import { HashtagsTab } from './pages/Research/HashtagsTab'
 import { ChannelTab } from './pages/Research/ChannelTab'
+import { AnalyticsPage } from './pages/Research/analytics/AnalyticsPage'
 import { CollectionsPage } from './pages/Research/CollectionsPage'
 import { CollectionDetailPage } from './pages/Research/CollectionDetailPage'
 import { RegionsPage } from './pages/Regions/RegionsPage'
@@ -67,9 +68,10 @@ export default function App() {
           <Route path="trending" element={<TrendingTab />} />
           <Route path="hashtags" element={<HashtagsTab />} />
           <Route path="channel" element={<ChannelTab />} />
+          <Route path="analytics" element={<AnalyticsPage />} />
+          <Route path="analytics/:videoId" element={<AnalyticsPage />} />
           <Route path="collections" element={<CollectionsPage />} />
           <Route path="collections/:id" element={<CollectionDetailPage />} />
-          <Route path="analytics" element={<Navigate to="analysis" replace />} />
         </Route>
         <Route path="profile" element={<ProfilePage />} />
         <Route

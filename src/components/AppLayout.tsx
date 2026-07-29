@@ -8,6 +8,7 @@ import {
     Calendar,
     Flame,
     Globe,
+    LineChart,
     Moon,
     Shield,
     Sun,
@@ -47,6 +48,7 @@ const BASE_NAV_ITEMS: NonNullable<MenuProps['items']> = [
             { key: '/youtube/trending', label: 'Trending Topics' },
             { key: '/youtube/hashtags', label: 'Hashtags' },
             { key: '/youtube/channel', label: 'Channel' },
+            { key: '/youtube/analytics', label: 'Video Analytics', icon: <LineChart size={14} /> },
             { key: '/youtube/collections', label: 'Collections' },
         ],
     },
@@ -94,7 +96,7 @@ function resolveSelectedKey(pathname: string): string {
     if (pathname.startsWith('/youtube/hashtags')) return '/youtube/hashtags'
     if (pathname.startsWith('/youtube/channel')) return '/youtube/channel'
     if (pathname.startsWith('/youtube/collections')) return '/youtube/collections'
-    if (pathname.startsWith('/youtube/analytics')) return '/youtube/analysis'
+    if (pathname.startsWith('/youtube/analytics')) return '/youtube/analytics'
     if (pathname.startsWith('/youtube')) return '/youtube/search'
     if (pathname.startsWith('/research')) return '/youtube/search'
     if (pathname.startsWith('/regions')) return '/regions'

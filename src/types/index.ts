@@ -535,3 +535,47 @@ export interface PlannerExploreResult {
   groups: PlannerExploreGroup[]
   filters: Record<string, unknown>
 }
+
+export type PacingStatus = 'SLOW' | 'OPTIMAL' | 'FAST' | 'UNKNOWN'
+
+export interface VideoAnalyticsSignals {
+  heatmap: 'OK' | 'LOW_DATA'
+  transcript: 'OK' | 'NO_TRANSCRIPT'
+  comments: 'OK' | 'NO_COMMENTS' | 'DISABLED'
+  visual: 'OK' | 'NO_STORYBOARD'
+}
+
+export interface VideoAnalyticsBucket {
+  timestamp_start: number
+  timestamp_end: number
+  heatmap_score: number | null
+  wpm: number | null
+  pacing_status: PacingStatus
+  comment_mentions: number
+  visual_change_score: number | null
+  drop_risk_score: number
+  flag_alert: boolean
+}
+
+export interface VideoAnalyticsSummaryDiagnostics {
+  total_detected_drop_zones: number
+  total_buckets: number
+  video_duration_sec: number
+  average_spoken_wpm: number | null
+  peak_engagement_timestamp: string | null
+}
+
+export interface VideoAnalyticsResponse {
+  video_id: string
+  analyzed_at: string
+  signals: VideoAnalyticsSignals
+  summary_diagnostics: VideoAnalyticsSummaryDiagnostics
+  timeline_analysis: VideoAnalyticsBucket[]
+}
+
+export interface VideoAnalyticsRequest {
+  video_id: string
+  bucket_size_sec?: number
+  languages?: string[]
+  max_comment_pages?: number
+}

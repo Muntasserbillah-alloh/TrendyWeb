@@ -9,12 +9,14 @@ import {
   getTopicAnalysis,
   getTrendingTopics,
   getTrendingVideos,
+  getVideoAnalytics,
   getVideoIdeas,
   searchYoutube,
 } from '../api/youtube'
 import type {
   OutlierFilters,
   SaveYoutubeCollectionParams,
+  VideoAnalyticsRequest,
   YoutubeScopedDateFilters,
 } from '../types'
 import type {
@@ -144,5 +146,11 @@ export function useSaveYoutubeCollection() {
       void queryClient.invalidateQueries({ queryKey: ['youtube-collections'] })
       void queryClient.invalidateQueries({ queryKey: ['outliers'] })
     },
+  })
+}
+
+export function useVideoAnalytics() {
+  return useMutation({
+    mutationFn: (params: VideoAnalyticsRequest) => getVideoAnalytics(params),
   })
 }

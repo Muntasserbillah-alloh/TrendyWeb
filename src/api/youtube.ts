@@ -14,6 +14,8 @@ import type {
   YoutubeSaveCollectionResult,
   YoutubeChannelAnalysis,
   YoutubeHashtagsResponse,
+  VideoAnalyticsRequest,
+  VideoAnalyticsResponse,
   YoutubeScopedDateFilters,
   YoutubeTrendingResponse,
 } from '../types'
@@ -130,4 +132,11 @@ export async function saveYoutubeCollection(
 ): Promise<{ data: YoutubeSaveCollectionResult }> {
   const { data } = await apiClient.post('/api/v1/youtube/save', params)
   return data
+}
+
+export async function getVideoAnalytics(
+  params: VideoAnalyticsRequest
+): Promise<VideoAnalyticsResponse> {
+  const { data } = await apiClient.post('/api/v1/youtube/analytics', params)
+  return data.data
 }
