@@ -27,6 +27,9 @@ type ErrorState =
 
 function classifyError(error: unknown): ErrorState {
   if (!error) return { kind: 'none' }
+  // An aborted request (new analyze started, or component unmounted on back/forth) is not a real
+  // failure — don't spike the error alert while another request is taking over.
+  if (axios.isCancel(error)) return { kind: 'none' }
   if (axios.isAxiosError(error)) {
     const status = error.response?.status
     const msg = error.message ?? ''
@@ -64,7 +67,11 @@ function classifyError(error: unknown): ErrorState {
 export function AnalyticsPage() {
   const { videoId: paramVideoId } = useParams<{ videoId?: string }>()
   const navigate = useNavigate()
-  const { mutate, isPending, error } = useVideoAnalytics()
+  // ponytail: the component owns the AbortController so an in-flight analyze is aborted when a new
+  // one starts and when this page unmounts (back/forth/refresh). Without this, stranded POSTs keep
+  // the mutation "pending" via stale onSuccess closures and the button gets stuck on loading.
+  const abortRef = useRef<AbortController | null>(null)
+  const { mutate, isPending, error } = useVideoAnalytics(() => abortRef.current?.signal)
 
   const [input, setInput] = useState(paramVideoId ?? '')
   const [advanced, setAdvanced] = useState<AdvancedAnalyticsOptions>(DEFAULT_ADVANCED)
@@ -77,8 +84,24 @@ export function AnalyticsPage() {
 
   const autoRanRef = useRef<string | null>(null)
 
+  // Abandon any in-flight analysis when this page unmounts (navigating away / refresh) so the
+  // backend isn't left holding a request whose onSuccess would fire on a stale, unmounted closure.
+  // Reset autoRanRef here too: <StrictMode> (main.tsx) simulates an unmount-then-remount right after
+  // the initial mount, which aborts the auto-run POST. Clearing the guard lets the remount re-fire
+  // it — otherwise a deep-linked refresh would cancel its own auto-analyze and never reschedule it,
+  // leaving the Analyze button stuck on loading with no network request ever sent.
+  useEffect(
+    () => () => {
+      abortRef.current?.abort()
+      autoRanRef.current = null
+    },
+    [],
+  )
+
   const runMutation = useCallback(
     (id: string, opts: AdvancedAnalyticsOptions) => {
+      abortRef.current?.abort()
+      abortRef.current = new AbortController()
       const langArr = opts.languages
         .split(',')
         .map((s) => s.trim())

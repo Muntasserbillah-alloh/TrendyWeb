@@ -1,11 +1,12 @@
-import { useMemo } from 'react'
-import { Card, Empty, Space, Typography } from 'antd'
+import { useMemo, useState } from 'react'
+import { Card, Checkbox, Empty, Space, Tooltip as AntTooltip, Typography } from 'antd'
+import { Info } from 'lucide-react'
 import {
   Area,
+  Brush,
   CartesianGrid,
   ComposedChart,
   Customized,
-  Legend,
   ReferenceArea,
   ReferenceLine,
   ResponsiveContainer,
@@ -22,6 +23,69 @@ import {
   pct,
   siteCommentUrl,
 } from './analyticsUtils'
+
+type LayerKey = 'dropRisk' | 'heatmap' | 'visual' | 'pacing' | 'dropZones' | 'pins' | 'peak'
+
+const LAYER_LABELS: Record<LayerKey, string> = {
+  dropRisk: 'Drop risk',
+  heatmap: 'Heatmap',
+  visual: 'Visual change',
+  pacing: 'Pacing bands',
+  dropZones: 'Drop zones',
+  pins: 'Comment pins',
+  peak: 'Peak marker',
+}
+
+const LAYER_COLORS: Record<LayerKey, string> = {
+  dropRisk: '#b91c1c',
+  heatmap: '#0891b2',
+  visual: '#ec4899',
+  pacing: '#10b981',
+  dropZones: '#ef4444',
+  pins: '#22c55e',
+  peak: '#fbbf24',
+}
+
+const LAYER_INFO: Record<LayerKey, string> = {
+  dropRisk:
+    'Composite retention-loss score per bucket (0–1). Combines heatmap dips, pacing extremes, visual monotony, and comment clusters into one curve. Higher = more likely viewers left.',
+  heatmap:
+    "YouTube's public heatmap score (0–1) — how often a moment was re-watched or skipped. Cyan areas mark where attention held.",
+  visual:
+    'Visual change score (0–1) — how much the frame changed this bucket versus neighbours. Detects scene cuts and static talking-head stretches.',
+  pacing:
+    'Full-height bands from transcript words-per-minute. Amber = slow (sparse delivery), green = optimal, violet = fast (dense delivery), gray = unknown pacing.',
+  dropZones:
+    'Flagged drop zones — buckets whose drop-risk crossed the alert threshold. Red shading marks the spots most likely to lose viewers.',
+  pins:
+    'Comment clusters — green dots sized by timestamp mentions. Click a pin to open that moment on YouTube. Larger dot = more comment traffic.',
+  peak:
+    'Reference line at the single moment of peak engagement, from the heatmap top. Compare it against your drop zones.',
+}
+
+const LAYER_ORDER: LayerKey[] = ['dropRisk', 'heatmap', 'visual', 'pacing', 'dropZones', 'pins', 'peak']
+
+function LayerToggle({
+  layer,
+  checked,
+  onChange,
+}: {
+  layer: LayerKey
+  checked: boolean
+  onChange: (v: boolean) => void
+}) {
+  return (
+    <Space size={4} align="center" style={{ lineHeight: 1 }}>
+      <Checkbox checked={checked} onChange={(e) => onChange(e.target.checked)}>
+        <span style={{ color: LAYER_COLORS[layer], marginRight: 4 }}>●</span>
+        {LAYER_LABELS[layer]}
+      </Checkbox>
+      <AntTooltip title={LAYER_INFO[layer]} placement="top">
+        <Info size={13} style={{ cursor: 'help', color: '#9ca3af', flexShrink: 0 }} />
+      </AntTooltip>
+    </Space>
+  )
+}
 
 interface ChartInternals {
   xAxisMap?: Record<number, { scale?: (v: number) => number }>
@@ -155,12 +219,36 @@ export function RetentionChart({ data, onBucketClick }: Props) {
   const duration = data.summary_diagnostics.video_duration_sec
   const signals = data.signals
 
-  const showHeatmap = signals.heatmap === 'OK' || signals.heatmap === 'LOW_DATA'
-  const showPacing = signals.transcript === 'OK'
-  const showVisual = signals.visual === 'OK'
-  const showPins = signals.comments === 'OK'
-
   const peakSec = parseTimestampToSec(data.summary_diagnostics.peak_engagement_timestamp)
+
+  // canShow = whether a layer has the backend signal to be renderable at all. The user toggle then
+  // decides whether it actually renders; all on by default so the composite reads "show everything".
+  const canShow: Record<LayerKey, boolean> = {
+    dropRisk: true,
+    heatmap: signals.heatmap === 'OK' || signals.heatmap === 'LOW_DATA',
+    visual: signals.visual === 'OK',
+    pacing: signals.transcript === 'OK',
+    pins: signals.comments === 'OK',
+    peak: peakSec != null,
+    dropZones: timeline.some((b) => b.flag_alert),
+  }
+
+  const [visible, setVisible] = useState<Record<LayerKey, boolean>>({
+    dropRisk: true,
+    heatmap: true,
+    visual: true,
+    pacing: true,
+    pins: true,
+    peak: true,
+    dropZones: true,
+  })
+
+  const showHeatmap = canShow.heatmap && visible.heatmap
+  const showPacing = canShow.pacing && visible.pacing
+  const showVisual = canShow.visual && visible.visual
+  const showPins = canShow.pins && visible.pins
+  const showDropRisk = canShow.dropRisk && visible.dropRisk
+  const showDropZones = canShow.dropZones && visible.dropZones
 
   const xTicks = useMemo(() => {
     if (!duration) return []
@@ -191,6 +279,17 @@ export function RetentionChart({ data, onBucketClick }: Props) {
         </Typography.Text>
       }
     >
+      <Space size={16} wrap style={{ marginBottom: 12 }}>
+        {LAYER_ORDER.filter((k) => canShow[k]).map((k) => (
+          <LayerToggle
+            key={k}
+            layer={k}
+            checked={visible[k]}
+            onChange={(v) => setVisible((prev) => ({ ...prev, [k]: v }))}
+          />
+        ))}
+      </Space>
+
       <div role="figure" aria-label="Composite video retention risk chart with heatmap, pacing, visual change, drop zones, and comment clusters.">
         <ResponsiveContainer width="100%" height={500}>
           <ComposedChart data={timeline} margin={{ top: 16, right: 16, bottom: 8, left: 8 }} onClick={handleClick}>
@@ -246,20 +345,21 @@ export function RetentionChart({ data, onBucketClick }: Props) {
                 />
               ))}
 
-            {timeline
-              .filter((b) => b.flag_alert)
-              .map((b, i) => (
-                <ReferenceArea
-                  key={`drop-${i}`}
-                  x1={b.timestamp_start}
-                  x2={b.timestamp_end}
-                  y1={0}
-                  y2={1}
-                  fill="#ef4444"
-                  fillOpacity={0.1}
-                  stroke="none"
-                />
-              ))}
+            {showDropZones &&
+              timeline
+                .filter((b) => b.flag_alert)
+                .map((b, i) => (
+                  <ReferenceArea
+                    key={`drop-${i}`}
+                    x1={b.timestamp_start}
+                    x2={b.timestamp_end}
+                    y1={0}
+                    y2={1}
+                    fill="#ef4444"
+                    fillOpacity={0.1}
+                    stroke="none"
+                  />
+                ))}
 
             {showVisual && (
               <Area
@@ -289,22 +389,22 @@ export function RetentionChart({ data, onBucketClick }: Props) {
               />
             )}
 
-            <Area
-              name="Drop risk"
-              type="monotone"
-              dataKey="drop_risk_score"
-              stroke="#b91c1c"
-              strokeWidth={2.5}
-              fill="url(#dropGrad)"
-              fillOpacity={0.35}
-              isAnimationActive={false}
-            />
-
-            {peakSec != null && (
-              <ReferenceLine x={peakSec} stroke="#fbbf24" strokeDasharray="4 4" label={{ value: 'Peak', fill: '#fbbf24', fontSize: 11, position: 'top' }} />
+            {showDropRisk && (
+              <Area
+                name="Drop risk"
+                type="monotone"
+                dataKey="drop_risk_score"
+                stroke="#b91c1c"
+                strokeWidth={2.5}
+                fill="url(#dropGrad)"
+                fillOpacity={0.35}
+                isAnimationActive={false}
+              />
             )}
 
-            <Legend verticalAlign="top" align="right" wrapperStyle={{ fontSize: 12 }} />
+            {peakSec != null && visible.peak && (
+              <ReferenceLine x={peakSec} stroke="#fbbf24" strokeDasharray="4 4" label={{ value: 'Peak', fill: '#fbbf24', fontSize: 11, position: 'top' }} />
+            )}
 
             <Tooltip
               content={
@@ -318,19 +418,18 @@ export function RetentionChart({ data, onBucketClick }: Props) {
               videoId={data.video_id}
               hasPins={showPins}
             />
+
+            <Brush
+              dataKey="timestamp_start"
+              height={22}
+              stroke="#0891b2"
+              travellerWidth={10}
+              tickFormatter={(v: number) => formatTs(v)}
+              fill="#1f1f1f"
+            />
           </ComposedChart>
         </ResponsiveContainer>
       </div>
-
-      <Space size={18} wrap style={{ marginTop: 12, fontSize: 12, color: '#6b7280' }}>
-        <span>
-          <span style={{ color: '#b91c1c' }}>●</span> Drop risk ·{' '}
-          <span style={{ color: '#0891b2' }}>●</span> Heatmap ·{' '}
-          <span style={{ color: '#ec4899' }}>●</span> Visual ·{' '}
-          <span style={{ color: '#22c55e' }}>●</span> Comment pin · <span style={{ color: '#fbbf24' }}>┃</span> Peak
-        </span>
-        <span>Pacing band: amber = slow · green = optimal · violet = fast · gray = unknown</span>
-      </Space>
     </Card>
   )
 }

@@ -149,8 +149,8 @@ export function useSaveYoutubeCollection() {
   })
 }
 
-export function useVideoAnalytics() {
+export function useVideoAnalytics(getSignal?: () => AbortSignal | undefined) {
   return useMutation({
-    mutationFn: (params: VideoAnalyticsRequest) => getVideoAnalytics(params),
+    mutationFn: (params: VideoAnalyticsRequest) => getVideoAnalytics(params, getSignal?.()),
   })
 }

@@ -135,8 +135,14 @@ export async function saveYoutubeCollection(
 }
 
 export async function getVideoAnalytics(
-  params: VideoAnalyticsRequest
+  params: VideoAnalyticsRequest,
+  signal?: AbortSignal
 ): Promise<VideoAnalyticsResponse> {
-  const { data } = await apiClient.post('/api/v1/youtube/analytics', params)
+  const { data } = await apiClient.post('/api/v1/youtube/analytics', params, {
+    signal,
+    // ponytail: backend analysis can run long; cap it so a hung request can't leave the Analyze
+    // button spinning forever (apiClient has no global timeout).
+    timeout: 90_000,
+  })
   return data.data
 }
