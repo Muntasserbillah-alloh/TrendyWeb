@@ -1,6 +1,30 @@
 * { box-sizing: border-box; }
 body { margin: 0; }
 
+/* Retention analytics thumbnail: action overlay hidden until hover OR keyboard focus
+   (pointer-events:none keeps it click-through while hidden; opacity alone would still
+   intercept pointer events). :focus-within makes the buttons reachable by keyboard —
+   tabbing to an invisible button reveals the overlay. */
+.thumb-actions-wrap .thumb-actions {
+	opacity: 0;
+	pointer-events: none;
+	transition: opacity 0.15s ease;
+}
+
+.thumb-actions-wrap:hover .thumb-actions,
+.thumb-actions-wrap:focus-within .thumb-actions {
+	opacity: 1;
+	pointer-events: auto;
+}
+
+/* Touch devices have no hover — always show the actions so they stay usable. */
+@media (hover: none) {
+	.thumb-actions-wrap .thumb-actions {
+		opacity: 1;
+		pointer-events: auto;
+	}
+}
+
 @keyframes trendyTopLoader {
 	0% {
 		transform: translateX(-120%);

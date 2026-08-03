@@ -571,6 +571,7 @@ export interface VideoAnalyticsResponse {
   signals: VideoAnalyticsSignals
   summary_diagnostics: VideoAnalyticsSummaryDiagnostics
   timeline_analysis: VideoAnalyticsBucket[]
+  thumbnail_url: string | null
 }
 
 export interface VideoAnalyticsRequest {

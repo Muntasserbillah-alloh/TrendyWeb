@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { memo, useMemo, useState } from 'react'
 import { Card, Checkbox, Empty, Space, Tooltip as AntTooltip, Typography } from 'antd'
 import { Info } from 'lucide-react'
 import {
@@ -214,7 +214,9 @@ interface Props {
   onBucketClick: (bucket: VideoAnalyticsBucket) => void
 }
 
-export function RetentionChart({ data, onBucketClick }: Props) {
+// memo: the parent (AnalyticsPage) re-renders on every keystroke in the form; the chart data is
+// stable, so skip the chart entirely instead of re-rendering hundreds of recharts components.
+export const RetentionChart = memo(function RetentionChart({ data, onBucketClick }: Props) {
   const timeline = data.timeline_analysis
   const duration = data.summary_diagnostics.video_duration_sec
   const signals = data.signals
@@ -255,6 +257,20 @@ export function RetentionChart({ data, onBucketClick }: Props) {
     const n = 6
     return Array.from({ length: n + 1 }, (_, i) => Math.round((duration * i) / n))
   }, [duration])
+
+  // Collapse contiguous same-status buckets into a single band. At 10s buckets a 1h video is 360
+  // buckets, so one ReferenceArea per bucket means 360 chart components rendered on every update.
+  // Consecutive runs usually compress to a handful of bands. Same x-ranges and colors as the
+  // per-bucket version, so the rendered chart is identical.
+  const pacingBands: Array<{ x1: number; x2: number; color: string }> = []
+  for (const b of timeline) {
+    const color = PACING_COLORS[b.pacing_status]
+    const last = pacingBands[pacingBands.length - 1]
+    if (last && last.color === color && b.timestamp_start === last.x2) last.x2 = b.timestamp_end
+    else pacingBands.push({ x1: b.timestamp_start, x2: b.timestamp_end, color })
+  }
+
+  const dropZoneBands = timeline.filter((b) => b.flag_alert).map((b) => ({ x1: b.timestamp_start, x2: b.timestamp_end }))
 
   if (!timeline.length || !duration) {
     return (
@@ -332,27 +348,25 @@ export function RetentionChart({ data, onBucketClick }: Props) {
             />
 
             {showPacing &&
-              timeline.map((b, i) => (
+              pacingBands.map((b, i) => (
                 <ReferenceArea
                   key={`pacing-${i}`}
-                  x1={b.timestamp_start}
-                  x2={b.timestamp_end}
+                  x1={b.x1}
+                  x2={b.x2}
                   y1={0}
                   y2={1}
-                  fill={PACING_COLORS[b.pacing_status]}
+                  fill={b.color}
                   fillOpacity={0.18}
                   stroke="none"
                 />
               ))}
 
             {showDropZones &&
-              timeline
-                .filter((b) => b.flag_alert)
-                .map((b, i) => (
+              dropZoneBands.map((b, i) => (
                   <ReferenceArea
                     key={`drop-${i}`}
-                    x1={b.timestamp_start}
-                    x2={b.timestamp_end}
+                    x1={b.x1}
+                    x2={b.x2}
                     y1={0}
                     y2={1}
                     fill="#ef4444"
@@ -432,4 +446,4 @@ export function RetentionChart({ data, onBucketClick }: Props) {
       </div>
     </Card>
   )
-}
+})

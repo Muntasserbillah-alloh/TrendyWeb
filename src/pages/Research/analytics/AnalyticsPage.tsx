@@ -2,19 +2,15 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import axios from 'axios'
 import { Alert, Button, Card, Skeleton, Space, Typography } from 'antd'
-import { ExternalLink, Link2 } from 'lucide-react'
+import { Link2 } from 'lucide-react'
 import type { VideoAnalyticsBucket, VideoAnalyticsRequest, VideoAnalyticsResponse } from '../../../types'
 import { useVideoAnalytics } from '../../../hooks/useYoutube'
 import { SignalBadges } from './SignalBadges'
 import { SummaryCards } from './SummaryCards'
 import { RetentionChart } from './RetentionChart'
 import { BucketDetailDrawer } from './BucketDetailDrawer'
-import { VideoIdForm } from './VideoIdForm'
-import {
-  DEFAULT_ADVANCED,
-  type AdvancedAnalyticsOptions,
-  parseTimestampToSec,
-} from './analyticsUtils'
+import { VideoIdForm, type VideoIdFormHandle } from './VideoIdForm'
+import { DEFAULT_ADVANCED, type AdvancedAnalyticsOptions } from './analyticsUtils'
 
 const EXAMPLE_IDS = ['dQw4w9WgXcQ', '9bZkp7q19f0', 'kJQP7kiw4Fk']
 
@@ -73,7 +69,6 @@ export function AnalyticsPage() {
   const abortRef = useRef<AbortController | null>(null)
   const { mutate, isPending, error } = useVideoAnalytics(() => abortRef.current?.signal)
 
-  const [input, setInput] = useState(paramVideoId ?? '')
   const [advanced, setAdvanced] = useState<AdvancedAnalyticsOptions>(DEFAULT_ADVANCED)
   const [result, setResult] = useState<VideoAnalyticsResponse | null>(null)
   const [selected, setSelected] = useState<VideoAnalyticsBucket | null>(null)
@@ -83,6 +78,7 @@ export function AnalyticsPage() {
   const [lastAttempt, setLastAttempt] = useState<string | null>(null)
 
   const autoRanRef = useRef<string | null>(null)
+  const formRef = useRef<VideoIdFormHandle>(null)
 
   // Abandon any in-flight analysis when this page unmounts (navigating away / refresh) so the
   // backend isn't left holding a request whose onSuccess would fire on a stale, unmounted closure.
@@ -179,7 +175,12 @@ export function AnalyticsPage() {
     )
   }, [result])
 
-  const peakSec = result ? parseTimestampToSec(result.summary_diagnostics.peak_engagement_timestamp) : null
+  // Stable reference so the memoized RetentionChart skips re-renders when the page re-renders
+  // (e.g. every keystroke in the form input).
+  const handleBucketClick = useCallback((b: VideoAnalyticsBucket) => {
+    setSelected(b)
+    setDrawerOpen(true)
+  }, [])
 
   async function copyLink() {
     try {
@@ -206,9 +207,11 @@ export function AnalyticsPage() {
         </Typography.Text>
       </Space>
 
+      {/* key remounts the form when the analyzed id changes so its field follows the URL */}
       <VideoIdForm
-        value={input}
-        onChange={setInput}
+        key={paramVideoId ?? 'manual'}
+        ref={formRef}
+        initialValue={paramVideoId ?? ''}
         onSubmit={analyzeVideo}
         isLoading={isPending}
         elapsedSeconds={elapsed}
@@ -268,7 +271,7 @@ export function AnalyticsPage() {
                 type="link"
                 style={{ padding: 0 }}
                 onClick={() => {
-                  setInput(id)
+                  formRef.current?.setValue(id)
                   analyzeVideo(id)
                 }}
               >
@@ -286,16 +289,6 @@ export function AnalyticsPage() {
             <Space size={8}>
               <Button icon={<Link2 size={14} />} onClick={copyLink}>
                 {copied ? 'Copied!' : 'Copy link'}
-              </Button>
-              <Button
-                icon={<ExternalLink size={14} />}
-                href={`https://www.youtube.com/watch?v=${result.video_id}${
-                  peakSec != null ? `&t=${Math.round(peakSec)}s` : ''
-                }`}
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                Open on YouTube
               </Button>
             </Space>
           </div>
@@ -324,13 +317,7 @@ export function AnalyticsPage() {
           ) : (
             <>
               <SummaryCards data={result} />
-              <RetentionChart
-                data={result}
-                onBucketClick={(b) => {
-                  setSelected(b)
-                  setDrawerOpen(true)
-                }}
-              />
+              <RetentionChart data={result} onBucketClick={handleBucketClick} />
             </>
           )}
         </Space>

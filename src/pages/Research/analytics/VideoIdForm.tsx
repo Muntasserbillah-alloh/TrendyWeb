@@ -1,11 +1,15 @@
-import { useState } from 'react'
+import { useImperativeHandle, useState, type Ref } from 'react'
 import { Button, Collapse, Input, Space, Typography } from 'antd'
 import { AdvancedOptions } from './AdvancedOptions'
 import { type AdvancedAnalyticsOptions, parseVideoId } from './analyticsUtils'
 
+export interface VideoIdFormHandle {
+  setValue: (v: string) => void
+}
+
 interface Props {
-  value: string
-  onChange: (v: string) => void
+  ref?: Ref<VideoIdFormHandle>
+  initialValue: string
   onSubmit: (videoId: string) => void
   isLoading: boolean
   elapsedSeconds: number
@@ -14,9 +18,12 @@ interface Props {
   serverError?: string | null
 }
 
+// The text input is local state: typing re-renders only this form, not the page/chart. The parent
+// gets the parsed id via onSubmit; initialValue is the deep-linked id. Remount via key in the
+// parent whenever the analyzed id changes so the field follows the URL.
 export function VideoIdForm({
-  value,
-  onChange,
+  ref,
+  initialValue,
   onSubmit,
   isLoading,
   elapsedSeconds,
@@ -24,8 +31,12 @@ export function VideoIdForm({
   onAdvancedChange,
   serverError,
 }: Props) {
+  const [value, setValue] = useState(initialValue)
   const [localError, setLocalError] = useState<string | null>(null)
   const error = localError ?? serverError ?? null
+
+  // Lets the page pre-fill the field (example buttons) without lifting the state back up.
+  useImperativeHandle(ref, () => ({ setValue }), [])
 
   function handleAnalyze() {
     const id = parseVideoId(value)
@@ -46,7 +57,7 @@ export function VideoIdForm({
           value={value}
           onChange={(e) => {
             setLocalError(null)
-            onChange(e.target.value)
+            setValue(e.target.value)
           }}
           onPressEnter={handleAnalyze}
           status={error ? 'error' : undefined}

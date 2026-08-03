@@ -1,4 +1,5 @@
-import { Card, Col, Row, Typography } from 'antd'
+import { Button, Card, Col, Row, Tooltip, Typography } from 'antd'
+import { Download, ExternalLink } from 'lucide-react'
 import type { VideoAnalyticsResponse } from '../../../types'
 import { formatDurationHuman, formatTs, parseTimestampToSec } from './analyticsUtils'
 
@@ -32,28 +33,118 @@ function buildCards(data: VideoAnalyticsResponse): CardDef[] {
   return cards
 }
 
+// YouTube serves images with permissive CORS, so we can fetch → blob and let the browser download
+// it under a real filename. If that ever fails (CORS change, network), fall back to opening it.
+async function downloadThumbnail(url: string, videoId: string) {
+  try {
+    const blob = await (await fetch(url)).blob()
+    const a = document.createElement('a')
+    a.href = URL.createObjectURL(blob)
+    a.download = `thumbnail-${videoId}.jpg`
+    document.body.appendChild(a) // Firefox ignores clicks on detached anchors
+    a.click()
+    a.remove()
+    URL.revokeObjectURL(a.href)
+  } catch {
+    window.open(url, '_blank', 'noopener')
+  }
+}
+
+function ThumbnailCard({ url, videoId, openUrl }: { url: string; videoId: string; openUrl: string }) {
+  return (
+    <Card
+      size="small"
+      style={{ height: '100%' }}
+      styles={{ body: { padding: 8 } }}
+      cover={
+        <div
+          className="thumb-actions-wrap"
+          style={{ position: 'relative', width: '100%' }}
+        >
+          <img
+            src={url}
+            alt={`Thumbnail of video ${videoId}`}
+            loading="lazy"
+            style={{ width: '100%', display: 'block', aspectRatio: '16 / 9', objectFit: 'cover' }}
+          />
+          <div
+            className="thumb-actions"
+            style={{
+              position: 'absolute',
+              inset: 0,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 12,
+              background: 'rgba(0,0,0,0.55)',
+              borderRadius: 8,
+            }}
+          >
+            <Tooltip title="Download thumbnail">
+              <Button
+                type="primary"
+                shape="circle"
+                icon={<Download size={18} />}
+                onClick={() => downloadThumbnail(url, videoId)}
+              />
+            </Tooltip>
+            <Tooltip title="Open on YouTube">
+              <Button
+                type="primary"
+                shape="circle"
+                icon={<ExternalLink size={18} />}
+                href={openUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+              />
+            </Tooltip>
+          </div>
+        </div>
+      }
+    >
+      <Typography.Text type="secondary" style={{ fontSize: 12, display: 'block', textAlign: 'center' }}>
+        Video thumbnail
+      </Typography.Text>
+    </Card>
+  )
+}
+
 export function SummaryCards({ data }: { data: VideoAnalyticsResponse }) {
   const cards = buildCards(data)
+  const peakSec = data.summary_diagnostics.peak_engagement_timestamp
+    ? parseTimestampToSec(data.summary_diagnostics.peak_engagement_timestamp)
+    : null
+  const openUrl = `https://www.youtube.com/watch?v=${data.video_id}${peakSec != null ? `&t=${Math.round(peakSec)}s` : ''}`
+
   return (
-    <Row gutter={[12, 12]}>
-      {cards.map((c) => (
-        <Col xs={12} md={Math.floor(24 / cards.length)} key={c.label}>
-          <Card size="small" style={{ height: '100%' }}>
-            <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-              <span style={{ marginRight: 6 }}>{c.icon}</span>
-              {c.label}
-            </Typography.Text>
-            <Typography.Title level={4} style={{ margin: 0, fontVariantNumeric: 'tabular-nums' }}>
-              {c.value}
-            </Typography.Title>
-            {c.hint && (
-              <Typography.Text type="secondary" style={{ fontSize: 11 }}>
-                {c.hint}
-              </Typography.Text>
-            )}
-          </Card>
+    <Row gutter={[16, 16]} align="stretch">
+      {data.thumbnail_url && (
+        <Col xs={24} md={8}>
+          <ThumbnailCard url={data.thumbnail_url} videoId={data.video_id} openUrl={openUrl} />
         </Col>
-      ))}
+      )}
+      <Col xs={24} md={data.thumbnail_url ? 16 : 24}>
+        <Row gutter={[12, 12]} align="stretch">
+          {cards.map((c) => (
+            <Col xs={12} md={Math.floor(24 / cards.length)} key={c.label}>
+              <Card size="small" style={{ height: '100%' }}>
+                <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                  <span style={{ marginRight: 6 }}>{c.icon}</span>
+                  {c.label}
+                </Typography.Text>
+                <Typography.Title level={4} style={{ margin: 0, fontVariantNumeric: 'tabular-nums' }}>
+                  {c.value}
+                </Typography.Title>
+                {c.hint && (
+                  <Typography.Text type="secondary" style={{ fontSize: 11 }}>
+                    {c.hint}
+                  </Typography.Text>
+                )}
+              </Card>
+            </Col>
+          ))}
+        </Row>
+      </Col>
     </Row>
   )
 }
