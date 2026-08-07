@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import axios from 'axios'
-import { Alert, Button, Card, Skeleton, Space, Typography } from 'antd'
+import { Alert, Button, Card, Skeleton, Space, Switch, Typography } from 'antd'
 import { Link2 } from 'lucide-react'
 import type { VideoAnalyticsBucket, VideoAnalyticsRequest, VideoAnalyticsResponse } from '../../../types'
 import { useVideoAnalytics } from '../../../hooks/useYoutube'
+import { isAnalyticsMockEnabled, setAnalyticsMockEnabled } from '../../../api/youtube'
 import { SignalBadges } from './SignalBadges'
 import { SummaryCards } from './SummaryCards'
 import { RetentionChart } from './RetentionChart'
@@ -76,6 +77,10 @@ export function AnalyticsPage() {
   const [elapsed, setElapsed] = useState(0)
   const [copied, setCopied] = useState(false)
   const [lastAttempt, setLastAttempt] = useState<string | null>(null)
+  // Dev/test only: serve mocked analytics instead of calling the backend. Persisted in localStorage.
+  const [mockOn, setMockOn] = useState(() => isAnalyticsMockEnabled())
+  // Whether the currently displayed result was served from mock data (drives the info alert).
+  const [resultFromMock, setResultFromMock] = useState(false)
 
   const autoRanRef = useRef<string | null>(null)
   const formRef = useRef<VideoIdFormHandle>(null)
@@ -110,6 +115,7 @@ export function AnalyticsPage() {
       }
       mutate(body, {
         onSuccess: (resp) => {
+          setResultFromMock(isAnalyticsMockEnabled())
           setResult(resp)
           navigate(`/youtube/analytics/${resp.video_id}`, { replace: true })
         },
@@ -123,6 +129,7 @@ export function AnalyticsPage() {
     setSelected(null)
     setDrawerOpen(false)
     setElapsed(0)
+    setResultFromMock(false)
     runMutation(id, advanced)
   }
 
@@ -198,14 +205,38 @@ export function AnalyticsPage() {
 
   return (
     <Space direction="vertical" size={16} style={{ width: '100%' }}>
-      <Space direction="vertical" size={0}>
-        <Typography.Title level={4} style={{ margin: 0 }}>
-          Video Retention Analytics
-        </Typography.Title>
-        <Typography.Text type="secondary" style={{ fontSize: 13 }}>
-          Reverse-engineer the retention curve of a public YouTube video — where viewers rewind, skip, or drop off.
-        </Typography.Text>
-      </Space>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, flexWrap: 'wrap' }}>
+        <Space direction="vertical" size={0}>
+          <Typography.Title level={4} style={{ margin: 0 }}>
+            Video Retention Analytics
+          </Typography.Title>
+          <Typography.Text type="secondary" style={{ fontSize: 13 }}>
+            Reverse-engineer the retention curve of a public YouTube video — where viewers rewind, skip, or drop off.
+          </Typography.Text>
+        </Space>
+        {import.meta.env.DEV && (
+          <Space size={8} align="center">
+            <Typography.Text type="secondary" style={{ fontSize: 13 }}>
+              Mock data
+            </Typography.Text>
+            <Switch
+              checked={mockOn}
+              onChange={(v) => {
+                setAnalyticsMockEnabled(v)
+                setMockOn(v)
+              }}
+            />
+          </Space>
+        )}
+      </div>
+
+      {mockOn && (
+        <Alert
+          type="info"
+          showIcon
+          message="Using mock data — analyses are served from mock-data/analytics/default.json and no backend request is sent. Turn the Mock data switch off to call the real backend."
+        />
+      )}
 
       {/* key remounts the form when the analyzed id changes so its field follows the URL */}
       <VideoIdForm
@@ -221,8 +252,22 @@ export function AnalyticsPage() {
       />
 
       {isPending && (
-        <Card>
-          <Skeleton active paragraph={{ rows: 10 }} />
+        <Card styles={{ body: { padding: 0 } }}>
+          {(lastAttempt ?? paramVideoId) ? (
+            <div className="analyz-scan">
+              <img
+                src={`https://img.youtube.com/vi/${lastAttempt ?? paramVideoId}/maxresdefault.jpg`}
+                alt="Analyzing video thumbnail"
+                onError={(e) => {
+                  // ponytail: maxresdefault 404s on some videos (lives, new uploads) — one-line fallback.
+                  e.currentTarget.src = e.currentTarget.src.replace('maxresdefault', 'hqdefault')
+                }}
+              />
+              <div className="analyz-scan-beam" />
+            </div>
+          ) : (
+            <Skeleton active paragraph={{ rows: 8 }} />
+          )}
         </Card>
       )}
 
@@ -284,6 +329,13 @@ export function AnalyticsPage() {
 
       {showResults && result && (
         <Space direction="vertical" size={16} style={{ width: '100%' }}>
+          {resultFromMock && (
+            <Alert
+              type="info"
+              showIcon
+              message="This result was served from mock data (mock-data/analytics/default.json) — no backend analysis was performed for it."
+            />
+          )}
           <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
             <SignalBadges signals={result.signals} />
             <Space size={8}>
@@ -316,8 +368,8 @@ export function AnalyticsPage() {
             </Card>
           ) : (
             <>
-              <SummaryCards data={result} />
               <RetentionChart data={result} onBucketClick={handleBucketClick} />
+              <SummaryCards data={result} />
             </>
           )}
         </Space>

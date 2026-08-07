@@ -134,10 +134,43 @@ export async function saveYoutubeCollection(
   return data
 }
 
+// ponytail: dev/test mock layer. When toggled on, ANY analytics request is answered from
+// mock-data/analytics/default.json instead of hitting the backend — iterate on the UI without
+// burning real analyses. Choice persists in localStorage; prod builds ignore it entirely
+// (import.meta.env.DEV is statically false there, so this code is tree-shaken out).
+const MOCK_KEY = 'trendy-analytics-mock'
+
+export function isAnalyticsMockEnabled(): boolean {
+  return typeof localStorage !== 'undefined' && localStorage.getItem(MOCK_KEY) === '1'
+}
+
+export function setAnalyticsMockEnabled(v: boolean) {
+  if (v) localStorage.setItem(MOCK_KEY, '1')
+  else localStorage.removeItem(MOCK_KEY)
+}
+
+async function getAnalyticsMock(): Promise<VideoAnalyticsResponse | null> {
+  try {
+    const res = await fetch('/mock-data/analytics/default.json')
+    return res.ok ? ((await res.json()) as VideoAnalyticsResponse) : null
+  } catch {
+    return null
+  }
+}
+
 export async function getVideoAnalytics(
   params: VideoAnalyticsRequest,
   signal?: AbortSignal
 ): Promise<VideoAnalyticsResponse> {
+  if (import.meta.env.DEV && isAnalyticsMockEnabled()) {
+    const mock = await getAnalyticsMock()
+    if (mock) {
+      await new Promise((r) => setTimeout(r, 400)) // keep the loading/skeleton state visible
+      // Mirror the requested id back so navigation/deep-links stay consistent with what was typed.
+      return { ...mock, video_id: params.video_id }
+    }
+    throw new Error('No mock data for testing: add mock-data/analytics/default.json and reload.')
+  }
   const { data } = await apiClient.post('/api/v1/youtube/analytics', params, {
     signal,
     // ponytail: backend analysis can run long; cap it so a hung request can't leave the Analyze

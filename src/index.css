@@ -25,6 +25,61 @@ body { margin: 0; }
 	}
 }
 
+/* Retention analytics: video thumbnail shown while the backend analyzes it, with a light beam
+   sweeping down the frame to signal "scanning". Beam + dim overlay are pointer-events:none so
+   clicks pass through to the underlying page controls. */
+.analyz-scan {
+	position: relative;
+	overflow: hidden;
+	border-radius: 8px;
+	background: #000;
+	width: min(560px, 100%);
+	margin-inline: auto;
+}
+
+.analyz-scan img {
+	display: block;
+	width: 100%;
+	aspect-ratio: 16 / 9;
+	object-fit: cover;
+}
+
+.analyz-scan::after {
+	content: '';
+	position: absolute;
+	inset: 0;
+	background: rgba(0, 0, 0, 0.35);
+	pointer-events: none;
+}
+
+.analyz-scan-beam {
+	position: absolute;
+	left: 0;
+	right: 0;
+	top: -30%;
+	height: 22%;
+	background: linear-gradient(
+		180deg,
+		transparent,
+		rgba(56, 189, 248, 0.55) 45%,
+		rgba(255, 255, 255, 0.85) 50%,
+		rgba(56, 189, 248, 0.55) 55%,
+		transparent
+	);
+	filter: blur(1px);
+	animation: analyzScan 2.2s ease-in-out infinite;
+	pointer-events: none;
+}
+
+@keyframes analyzScan {
+	0% {
+		top: -10%;
+	}
+	100% {
+		top: 105%;
+	}
+}
+
 @keyframes trendyTopLoader {
 	0% {
 		transform: translateX(-120%);
