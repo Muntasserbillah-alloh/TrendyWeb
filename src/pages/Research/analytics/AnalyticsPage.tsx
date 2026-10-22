@@ -214,7 +214,7 @@ export function AnalyticsPage() {
             Reverse-engineer the retention curve of a public YouTube video — where viewers rewind, skip, or drop off.
           </Typography.Text>
         </Space>
-        {import.meta.env.DEV && (
+        {/* {import.meta.env.DEV && (
           <Space size={8} align="center">
             <Typography.Text type="secondary" style={{ fontSize: 13 }}>
               Mock data
@@ -227,7 +227,7 @@ export function AnalyticsPage() {
               }}
             />
           </Space>
-        )}
+        )} */}
       </div>
 
       {mockOn && (
